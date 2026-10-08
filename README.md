@@ -6,7 +6,9 @@ not on the simulations under it.
 It couples [vexelray-sim-fluid](../vexelray-sim-fluid) and [vexelray-sim-rigid](../vexelray-sim-rigid) both ways:
 bodies feel buoyancy and drag, and the fluid feels the bodies as moving boundaries. Both run in one step.
 
-This is a scaffold so far. [docs/architecture.md](docs/architecture.md) says where it sits;
+**Status: a scaffold.** The modules are empty, and nothing is coupled yet. It waits on two things: vexelray-sim-rigid
+being able to rest a stack, and the shared pieces a coupled step needs (namespaced buffers in SupirVast, the boundary
+contract in vexelray-sim-core). [docs/architecture.md](docs/architecture.md) says where it sits and why;
 [docs/TODO.md](docs/TODO.md) lists what comes first.
 
 | Module | What it holds |
@@ -16,8 +18,9 @@ This is a scaffold so far. [docs/architecture.md](docs/architecture.md) says whe
 
 ## Running
 
-The stack's siblings must be installed to the local Maven repository first: `supirvast`, `vexelray`,
-`tactroller`, `vexelray-gui`, `vexelray-sim-core`, `vexelray-sim-fluid`, `vexelray-sim-rigid`.
+The stack's siblings must be installed to the local Maven repository first: `supirvast`, `vexelray`, `kronometer`,
+`tactroller`, `atchung`, `vexelray-gui`, `vexelray-framework`, `vexelray-sim-core`, `vexelray-sim-fluid`,
+`vexelray-sim-rigid`.
 
 ```bash
 mvn install

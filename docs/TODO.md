@@ -1,7 +1,7 @@
 # TODO
 
-- [ ] **Namespaced buffers** in `vexelray-sim-core`'s step types, so two simulations' passes can be recorded into one
-      sequence without their names colliding.
+- [ ] **Namespaced buffers** in SupirVast's pass types (`dev.supirvast.vastir.pass`) and `PassRunner`, so two
+      simulations' passes can be recorded into one sequence without their names colliding.
 - [ ] **The boundary contract** in `vexelray-sim-core`: a solid as the fluid sees it, and the force and torque the
       fluid gives back. The fluid takes a boundary moved from outside, and the bodies take forces from outside.
 - [ ] **One body in water**: a box that floats at the depth its density says, and settles. Judged against
