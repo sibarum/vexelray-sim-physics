@@ -1,5 +1,9 @@
 # TODO
 
+- [ ] **Update all version numbers** in the root `pom.xml` to the siblings' current versions, which have moved on
+      since: `vexelray.gui.version`, `vexelray.sim.core.version`, `vexelray.sim.fluid.version` and
+      `vexelray.sim.rigid.version` are 0.1.0-SNAPSHOT (now 0.1.1-SNAPSHOT), and `supirvast.version` is
+      0.2.0-SNAPSHOT (now 0.2.1-SNAPSHOT). Until then the build uses stale jars from `~/.m2`.
 - [ ] **Namespaced buffers** in SupirVast's pass types (`dev.supirvast.vastir.pass`) and `PassRunner`, so two
       simulations' passes can be recorded into one sequence without their names colliding.
 - [ ] **The boundary contract** in `vexelray-sim-core`: a solid as the fluid sees it, and the force and torque the
