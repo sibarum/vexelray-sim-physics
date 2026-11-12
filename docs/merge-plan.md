@@ -1,8 +1,11 @@
 # Plan: one repository for the simulations
 
 *Drafted 2026-11-12. Steps 1 to 6 done the same day: the history is here, one build passes (337 tests) and both
-demos run from their folders; vexelray-dist and the links elsewhere are edited but not yet committed in those
-repositories. Steps 7 (GitHub) and 8 (the old checkouts) are the author's.*
+demos run from their folders; vexelray-dist and the links elsewhere are committed in those repositories. Step 7
+begun: `sibarum/vexelray-sim-physics` exists and `develop` is pushed; the old repositories are not archived yet.
+Dist builds from here: its library chain installs this repository (6 min, all tests passing), and `build.cmd
+vexelray-sim-fluid vexelray-sim-rigid` tests both demos in their folders and makes `fluid-sim.exe` and
+`rigid-sim.exe` where `installer.json` looks for them. Step 8 (the old checkouts) is the author's.*
 
 `vexelray-sim-core`, `vexelray-sim-fluid` and `vexelray-sim-rigid` move into this repository, beside the coupling,
 with their history. It is done before the port to VexelRay 0.2 and before the coupling work, because both of those
