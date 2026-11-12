@@ -1,0 +1,537 @@
+package dev.vexelray.sim.fluid.demo;
+
+import dev.vexelray.sim.fluid.gui.View;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The scenarios the demo keeps: the ones that show the most, each with the quantities worth changing on it.
+ *
+ * <p>A scenario is a starting state and the physics it runs under. What is fixed about it is here as methods; what
+ * the user can change is its {@link Param parameters}, each a {@link Knob} with a range and a starting value, and
+ * whatever the user chose arrives as a {@link Tuning}.
+ */
+enum Scenario {
+
+    /** A column of water against the left wall of a walled vertical slice, gravity down: MLS-MPM, weakly compressible. */
+    DAM_BREAK("Water", Group.DAM_BREAKS, View.DEPTH,
+            "A column of water released\nagainst one wall of a box:\nit falls, runs the floor and\nclimbs the far side.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.COLUMN_WIDTH, 10, 100, 40)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            return col < t.cells(Knob.COLUMN_WIDTH) && row < COLUMN_HEIGHT ? WATER : 0;
+        }
+    },
+
+    /**
+     * The same column, a lower layer of water under a layer of a lighter fluid: released together, the oil rides over the
+     * water as it crosses the box. Two fluids that differ in nothing but their particles' mass.
+     */
+    OIL_ON_WATER("Oil on water", Group.DAM_BREAKS, View.MATERIAL,
+            "Water under a lighter oil,\nreleased together: the oil\nrides over the water.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.SECOND_DENSITY, 0.3, 0.95, 0.8),
+            param(Knob.COLUMN_WIDTH, 10, 100, 40)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            if (col >= t.cells(Knob.COLUMN_WIDTH) || row >= COLUMN_HEIGHT) {
+                return 0;
+            }
+            return row < WATER_ROWS ? WATER : t.get(Knob.SECOND_DENSITY);
+        }
+    },
+
+    /** The same, with mercury for the lower fluid: 13.6 times as dense as the water over it, at the same sound speed. */
+    MERCURY_AND_WATER("Water on mercury", Group.DAM_BREAKS, View.MATERIAL,
+            "The oil dam break with\nmercury underneath, 13.6\ntimes as dense as water.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.SECOND_DENSITY, 2, 16, 13.6),
+            param(Knob.COLUMN_WIDTH, 10, 100, 40)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            if (col >= t.cells(Knob.COLUMN_WIDTH) || row >= COLUMN_HEIGHT) {
+                return 0;
+            }
+            return row < WATER_ROWS ? t.get(Knob.SECOND_DENSITY) : WATER;
+        }
+    },
+
+    /**
+     * Water over a lighter fluid, across the whole box, with the interface rippled by a few cells: the heavy fluid falls
+     * through the light in fingers and the light rises in bubbles, growing from the ripple and the particles' jitter.
+     */
+    RAYLEIGH_TAYLOR("Rayleigh-Taylor", Group.MIXING, View.MATERIAL,
+            "Water over a lighter fluid:\nthe rippled interface grows\ninto falling fingers and\nrising bubbles.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.SECOND_DENSITY, 0.1, 0.9, 0.5)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            if (col >= BOX_WIDTH || row >= 2 * LAYER_ROWS + RIPPLE) {
+                return 0;
+            }
+            double surface = LAYER_ROWS + RIPPLE * Math.cos(2 * Math.PI * 2 * (col + 0.5) / BOX_WIDTH);
+            return row + 0.5 < surface ? t.get(Knob.SECOND_DENSITY) : WATER;
+        }
+    },
+
+    /**
+     * A box of water filling it, with a hot floor and a cold lid, the fluid made lighter by heat: the warm water at the
+     * floor is unstable under the cold, and rises in plumes as the cold falls in sheets. Rayleigh-Benard convection with a
+     * fluid that has almost no viscosity, so the plumes do not settle into tidy rolls.
+     */
+    CONVECTION("Convection", Group.HEAT, View.TEMPERATURE,
+            "A hot floor under a cold lid:\nthe warm water rises in plumes\nas the cold falls in sheets.",
+            param(Knob.GRAVITY, 0.05, 1, 0.3),
+            param(Knob.CONDUCTIVITY, 1, 30, 6),
+            param(Knob.EXPANSION, 0.1, 2, 1)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            return col < BOX_WIDTH && row < BOX_WIDTH ? WATER : 0;
+        }
+
+        @Override
+        double relaxation() {
+            // J is carried and loses the volume over a long run; the box, which must stay full against its lid, needs it
+            // drawn back toward what the mass says.
+            return 1;
+        }
+
+        @Override
+        double compression() {
+            // A closed box is pressurised, and a free one is not: with no pressure at the lid, any flow that turns away from
+            // it opens a gap, which nothing pushes the fluid to fill.
+            return 0.97;
+        }
+
+        @Override
+        double temperature(double x, double y) {
+            // Linear from the floor to the lid, and a few percent of fixed noise for the plumes to grow from.
+            return Math.min(1, Math.max(0, 1 - (y - 1) / 125 + 0.06 * (noise(x, y) - 0.5)));
+        }
+    },
+
+    /**
+     * The convection box with the lid warm and the water started below the boiling point, and a density law with a step in
+     * it: above the boiling point the fluid weighs a fraction of what it did, and below it the weight comes back. The floor
+     * is at 1, so a hot layer at the floor foams, the foam rises fast and dies where it cools. A fraction of the nodes have a
+     * nucleation site, so the foam starts at the boiling point and in many small places: a rolling boil. With none, the
+     * water climbs past the boiling point before it foams, and a whole superheated region goes at once: bumping.
+     */
+    BOILING("Boiling", Group.HEAT, View.MATERIAL,
+            "Foam forms where the water\npasses its boiling point.\nMany nucleation sites: a rolling\nboil. None: bumping.",
+            param(Knob.GRAVITY, 0.05, 1, 0.3),
+            param(Knob.CONDUCTIVITY, 5, 60, 25),
+            param(Knob.EXPANSION, 0.1, 1, 0.3),
+            param(Knob.BOIL_POINT, 0.65, 0.85, 0.72),
+            param(Knob.FOAM_DROP, 0.3, 0.98, 0.9),
+            param(Knob.SUPERHEAT, 0, 0.25, 0.12),
+            param(Knob.STONES, 0, 1, 0.15)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            return col < BOX_WIDTH && row < BOX_WIDTH ? WATER : 0;
+        }
+
+        @Override
+        double cold() {
+            return 0.2;
+        }
+
+        @Override
+        double relaxation() {
+            return 1;
+        }
+
+        @Override
+        double compression() {
+            return 0.97;
+        }
+
+        @Override
+        double temperature(double x, double y) {
+            return 0.6 + 0.04 * (noise(x, y) - 0.5);
+        }
+    },
+
+    /**
+     * A pool with a drain on the left and a spout on the right, both under the surface: whatever reaches the drain is put back
+     * at the spout, moving along its direction at the pump's speed. The same particles go round, so the pool neither fills
+     * nor empties; at the force turned up the spout throws a jet out of the water, and at 0 the pump is off.
+     */
+    PUMP("Drain and spout", Group.PUMPS, View.DEPTH,
+            "A drain and a spout, a pump\nbetween them: what the drain\ntakes the spout throws back,\nthe same water, round and round.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.PUMP, 0, 6, 3),
+            param(Knob.ANGLE, 0, 180, 90)) {
+        @Override
+        double density(int col, int row, Tuning t) {
+            return col < BOX_WIDTH && row < POOL_ROWS ? WATER : 0;
+        }
+
+        @Override
+        boolean pump() {
+            return true;
+        }
+    },
+
+    /**
+     * A column of water in a box, in three dimensions, released against one wall: it falls, spreads across the floor and
+     * climbs the far walls, now in x and in z. The picture is the water as a lit surface you turn by dragging, or, with the
+     * surface off, the flat picture of its state: its depth seen through the box, or a slice through its middle.
+     */
+    DAM_BREAK_3D("3D dam break", Group.THREE_DIMENSIONS, View.DEPTH,
+            "The dam break in three\ndimensions. Drag the picture\nto turn it; scroll to zoom.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.COLUMN_WIDTH, 6, 28, 16),
+            param(Knob.RESOLUTION, 32, 96, 40),
+            param(Knob.TENSION, 0, 10, 0)) {
+        @Override
+        int dimensions() {
+            return 3;
+        }
+
+        @Override
+        double density3(int col, int row, int layer, Tuning t) {
+            return col < t.cells(Knob.COLUMN_WIDTH) && row < 30 && layer >= 12 && layer < 32 ? WATER : 0;
+        }
+    },
+
+    /**
+     * A ball of slime dropped onto the floor of the box: a viscoplastic material, a soft elastic solid until it is pushed
+     * past its yield and then a thick liquid. It splats, shivers and settles into a heap that stays, where water would
+     * spread flat.
+     */
+    SLIME_3D("Slime", Group.THREE_DIMENSIONS, View.DEPTH,
+            "A ball of slime dropped on\nthe floor: it splats, wobbles\nand settles into a heap.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.FIRMNESS, 0, 30, 12),
+            param(Knob.THICKNESS, 0, 50, 10),
+            param(Knob.WOBBLE, 1, 12, 4),
+            param(Knob.RESOLUTION, 32, 96, 40),
+            param(Knob.TENSION, 0, 10, 0)) {
+        @Override
+        int dimensions() {
+            return 3;
+        }
+
+        @Override
+        double density3(int col, int row, int layer, Tuning t) {
+            return ball(col, row, layer, SLIME_X, SLIME_Y, SLIME_X, SLIME_RADIUS) ? WATER : 0;
+        }
+    },
+
+    /**
+     * Three blobs of slime dropped onto each other, with surface tension: where they touch, the tension pulls them
+     * into one, and the firmness resists the change of shape. Soft and strongly pulled, they round into one blob; firm,
+     * they stick where they touch and stay a pile of three.
+     */
+    SLIME_BLOBS_3D("Slime blobs", Group.THREE_DIMENSIONS, View.DEPTH,
+            "Three blobs of slime dropped\nonto each other: surface\ntension pulls them into one.\nFirmer ones stick but stay three.",
+            param(Knob.GRAVITY, 0.05, 2, 1),
+            param(Knob.FIRMNESS, 0, 30, 8),
+            param(Knob.THICKNESS, 0, 50, 5),
+            param(Knob.WOBBLE, 1, 12, 3),
+            param(Knob.RESOLUTION, 32, 96, 40),
+            param(Knob.TENSION, 0, 10, 10)) {
+        @Override
+        int dimensions() {
+            return 3;
+        }
+
+        @Override
+        double density3(int col, int row, int layer, Tuning t) {
+            for (double[] blob : BLOBS) {
+                if (ball(col, row, layer, blob[0], blob[1], blob[2], BLOB_RADIUS)) {
+                    return WATER;
+                }
+            }
+            return 0;
+        }
+    };
+
+    /** Whether a cell's centre is inside the ball at {@code (x, y, z)}, all in cells of the reference box. */
+    private static boolean ball(int col, int row, int layer, double x, double y, double z, double radius) {
+        double dx = col + 0.5 - x;
+        double dy = row + 0.5 - y;
+        double dz = layer + 0.5 - z;
+        return dx * dx + dy * dy + dz * dz <= radius * radius;
+    }
+
+    /** How the scenarios are grouped in the list. */
+    enum Group {
+        DAM_BREAKS("Dam breaks"), MIXING("Mixing"), HEAT("Heat"), PUMPS("Pumps"), THREE_DIMENSIONS("Three dimensions");
+
+        private final String title;
+
+        Group(String title) {
+            this.title = title;
+        }
+
+        String title() {
+            return title;
+        }
+    }
+
+    /** One knob as a scenario offers it: the range the user may choose in, and what it starts as. */
+    record Param(Knob knob, double min, double max, double def) {
+        Param {
+            if (!(min <= def && def <= max)) {
+                throw new IllegalArgumentException(knob + ": " + def + " is outside " + min + " .. " + max);
+            }
+        }
+
+        double clamp(double value) {
+            return Double.isNaN(value) ? def : Math.min(max, Math.max(min, value));
+        }
+    }
+
+    /**
+     * What the user chose for a scenario's knobs. A knob the scenario does not have reads as 0, and a scenario only
+     * asks for its own.
+     *
+     * <p>A record of plain values, one a knob and which of them the scenario has, so it is immutable as its type says
+     * and crosses to the physics lane as itself: the framework refuses a payload holding a map, which a sender could
+     * still change. Made by {@link #of}.
+     *
+     * @param held a bit for each knob the scenario has, by its ordinal
+     */
+    record Tuning(long held, double gravity, double secondDensity, double columnWidth, double conductivity,
+                  double expansion, double boilPoint, double foamDrop, double superheat, double stones, double resolution,
+                  double pump, double angle, double tension, double firmness, double thickness, double wobble) {
+
+        /** The knobs in {@code values}, each held; every other one not, and read as 0. */
+        static Tuning of(Map<Knob, Double> values) {
+            long held = 0;
+            for (Knob k : values.keySet()) {
+                held |= 1L << k.ordinal();
+            }
+            return new Tuning(held, value(values, Knob.GRAVITY), value(values, Knob.SECOND_DENSITY),
+                    value(values, Knob.COLUMN_WIDTH), value(values, Knob.CONDUCTIVITY), value(values, Knob.EXPANSION),
+                    value(values, Knob.BOIL_POINT), value(values, Knob.FOAM_DROP), value(values, Knob.SUPERHEAT),
+                    value(values, Knob.STONES), value(values, Knob.RESOLUTION), value(values, Knob.PUMP),
+                    value(values, Knob.ANGLE), value(values, Knob.TENSION), value(values, Knob.FIRMNESS),
+                    value(values, Knob.THICKNESS), value(values, Knob.WOBBLE));
+        }
+
+        private static double value(Map<Knob, Double> values, Knob knob) {
+            return values.getOrDefault(knob, 0.0);
+        }
+
+        double get(Knob knob) {
+            if (!has(knob)) {
+                return 0;
+            }
+            return switch (knob) {
+                case GRAVITY -> gravity;
+                case SECOND_DENSITY -> secondDensity;
+                case COLUMN_WIDTH -> columnWidth;
+                case CONDUCTIVITY -> conductivity;
+                case EXPANSION -> expansion;
+                case BOIL_POINT -> boilPoint;
+                case FOAM_DROP -> foamDrop;
+                case SUPERHEAT -> superheat;
+                case STONES -> stones;
+                case RESOLUTION -> resolution;
+                case PUMP -> pump;
+                case ANGLE -> angle;
+                case TENSION -> tension;
+                case FIRMNESS -> firmness;
+                case THICKNESS -> thickness;
+                case WOBBLE -> wobble;
+            };
+        }
+
+        boolean has(Knob knob) {
+            return (held & (1L << knob.ordinal())) != 0;
+        }
+
+        /** A whole number of cells. */
+        int cells(Knob knob) {
+            return (int) Math.round(get(knob));
+        }
+    }
+
+    /** Rest densities, and the cell counts the particle scenarios fill. */
+    static final double WATER = 1.0;
+    /** The Rayleigh-Taylor interface's ripple, in cells. */
+    static final int RIPPLE = 4;
+    static final int COLUMN_HEIGHT = 80;
+    static final int WATER_ROWS = 50;
+    static final int BOX_WIDTH = 125;
+    static final int LAYER_ROWS = 30;
+    /** The depth of the pump scenario's pool, in cells. */
+    static final int POOL_ROWS = 20;
+    /** The pump scenario's drain and spout, in node units from the box's corner: where, and how wide. */
+    static final double DRAIN_X = 25;
+    static final double DRAIN_Y = 12;
+    static final double DRAIN_RADIUS = 5;
+    static final double SPOUT_X = 100;
+    static final double SPOUT_Y = 12;
+    static final double SPOUT_RADIUS = 3;
+    /** The slime ball, in the cells of the box the 3D scenarios are written for: across, up, and its radius. */
+    static final double SLIME_X = 22.5;
+    static final double SLIME_Y = 24;
+    static final double SLIME_RADIUS = 9;
+    /** The slime blobs' centres, in the same cells, from the lowest to the one dropped from highest, and their radius. */
+    private static final double[][] BLOBS = {{16, 8, 20}, {29, 20, 25}, {21, 35, 22.5}};
+    static final double BLOB_RADIUS = 7;
+
+    private final String title;
+    private final Group group;
+    private final View view;
+    private final String about;
+    private final List<Param> params;
+
+    Scenario(String title, Group group, View view, String about, Param... params) {
+        this.title = title;
+        this.group = group;
+        this.view = view;
+        this.about = about;
+        this.params = List.of(params);
+    }
+
+    private static Param param(Knob knob, double min, double max, double def) {
+        return new Param(knob, min, max, def);
+    }
+
+    /** The name in the list. */
+    String title() {
+        return title;
+    }
+
+    Group group() {
+        return group;
+    }
+
+    /** The view that shows this scenario best, which it opens in. */
+    View view() {
+        return view;
+    }
+
+    /** A few short lines on what happens. */
+    String about() {
+        return about;
+    }
+
+    /**
+     * The views that mean something here, in the order the panel offers them. Which fluid is where needs two fluids, or
+     * foam; temperature needs heat. Three dimensions are seen flat as a thickness or a slice, where only the density and
+     * the speed say anything: the wave-speed views rebuild a depth from what is not one.
+     */
+    List<View> views() {
+        if (dimensions() == 3) {
+            return List.of(View.DEPTH, View.SPEED);
+        }
+        List<View> views = new ArrayList<>(List.of(View.DEPTH, View.SPEED, View.MOMENTUM_X, View.MOMENTUM_Y,
+                View.FROUDE, View.COURANT));
+        if (param(Knob.SECOND_DENSITY) != null || foam()) {
+            views.add(View.MATERIAL);
+        }
+        if (heat()) {
+            views.add(View.TEMPERATURE);
+        }
+        return List.copyOf(views);
+    }
+
+    /** The knobs, in the order the panel shows them. */
+    List<Param> params() {
+        return params;
+    }
+
+    Param param(Knob knob) {
+        for (Param p : params) {
+            if (p.knob() == knob) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    /** The scenario as shipped. */
+    Tuning defaults() {
+        Map<Knob, Double> values = new EnumMap<>(Knob.class);
+        for (Param p : params) {
+            values.put(p.knob(), p.def());
+        }
+        return Tuning.of(values);
+    }
+
+    /** A particle scenario's rest density in the cell {@code col} across and {@code row} up from the box's inside corner, or 0. */
+    double density(int col, int row, Tuning tuning) {
+        return 0;
+    }
+
+    /** Whether the scenario is two-dimensional, as most are, or three. */
+    int dimensions() {
+        return 2;
+    }
+
+    /** A three-dimensional scenario's rest density in a cell of the box, or 0. */
+    double density3(int col, int row, int layer, Tuning tuning) {
+        return 0;
+    }
+
+    /** Whether the fluid is a viscoplastic material, whose {@link Knob#FIRMNESS} and the knobs beside it then set it. */
+    boolean plastic() {
+        return param(Knob.FIRMNESS) != null;
+    }
+
+    /** Whether the scenario has a drain and a spout, which its {@link Knob#PUMP} and {@link Knob#ANGLE} then steer. */
+    boolean pump() {
+        return false;
+    }
+
+    /** Whether heat conducts through the fluid; the knobs say how well. */
+    boolean heat() {
+        return param(Knob.CONDUCTIVITY) != null;
+    }
+
+    /** Whether heat makes the fluid lighter, which holds the floor at {@link #hot} and the top at {@link #cold}. */
+    boolean convection() {
+        return param(Knob.EXPANSION) != null;
+    }
+
+    /** Whether the fluid foams past its boiling point. */
+    boolean foam() {
+        return param(Knob.FOAM_DROP) != null;
+    }
+
+    /** How fast, per second, each particle's {@code J} is drawn toward the volume its neighbourhood's mass gives; none if 0. */
+    double relaxation() {
+        return 0;
+    }
+
+    /** The {@code J} the particles start at; below 1 the fluid starts compressed, as a pressurised box. */
+    double compression() {
+        return 1;
+    }
+
+    /** The temperature the floor is held at in a convection scenario. */
+    double hot() {
+        return 1;
+    }
+
+    /** The temperature the top is held at in a convection scenario. */
+    double cold() {
+        return 0;
+    }
+
+    /** The temperature range the foam comes on over: sharp if small. */
+    double foamWidth() {
+        return 0.03;
+    }
+
+    /** The temperature of a particle at {@code (x, y)} in node units, for a scenario with heat. */
+    double temperature(double x, double y) {
+        return 0;
+    }
+
+    /** Fixed pseudo-random noise in [0, 1) at a point, the same every run. */
+    private static double noise(double x, double y) {
+        double n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+        return n - Math.floor(n);
+    }
+}
