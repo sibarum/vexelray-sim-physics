@@ -1,29 +1,41 @@
 # Working in this repo
 
-`vexelray-sim-fluid` is the fluid solver and its experiments, on SupirVast and the VexelRay stack.
-[README.md](README.md) is the tour, [docs/architecture.md](docs/architecture.md) the design (including how the demo
-is threaded and timed), and [docs/TODO.md](docs/TODO.md) what is known and not done, which is where anything you
-notice and do not fix belongs. An entry is deleted when it is done, not ticked.
+`vexelray-sim-physics` is VexelRay's simulations, on SupirVast and the VexelRay stack, in one repository since
+2026-11-12. Each folder was a repository of its own and keeps its own README, `docs/` and `docs/TODO.md`:
 
-It sits among sibling checkouts under `C:\Users\User\Documents\GitHub\`, all the author's own and all modifiable.
-Most of what this repo leans on is in them:
+| Folder | What it is |
+| --- | --- |
+| `vexelray-sim-core` | What the simulations share: `AppCompute` (the lent compute queue), `ShownRing` and `KeptSlots` (finished steps to a picture), `Orbit`, `Dial`, `DemoLook`. Infrastructure, never technique. Code the fluid and the rigid bodies both need goes here, not in both |
+| `vexelray-sim-fluid` | The fluid solver and its experiments, and the Fluid Sim demo |
+| `vexelray-sim-rigid` | The rigid-body solver and its experiments, and the Rigid Sim demo. The demo whose pattern the fluid's follows: its `docs/physics-timing.md` is the plan for how physics is run and shown; read it and its latest commits before trusting the fluid's TODO about "the pattern" |
+| `vexelray-sim-physics-core`, `-gui` | The two coupled both ways, and the front door. [docs/](docs) at the root is the coupling's |
+
+**The fluid and the rigid bodies do not depend on each other**, and the coupling belongs to neither. Keep it so: a
+fluid module never takes a rigid one as a dependency, or the other way. What both must agree on goes in sim-core.
+
+Anything you notice and do not fix goes in the TODO of the folder it is about (the root `docs/TODO.md` for the
+coupling). An entry is deleted when it is done, not ticked.
+
+The rest of the stack is in sibling checkouts under `C:\Users\User\Documents\GitHub\`, all the author's own and all
+modifiable:
 
 | Repo | What it gives this one |
 | --- | --- |
-| **vexelray-sim-core** | What the simulations share: `AppCompute` (the lent compute queue), `ShownRing` and `KeptSlots` (finished steps to a picture), `Orbit`, `Dial`, `DemoLook`. Shared code goes here, not here-and-in-rigid |
-| **vexelray-sim-rigid** | The demo whose pattern this one follows. Its `docs/physics-timing.md` is the plan for how physics is run and shown; read it and its latest commits before trusting this repo's TODO about "the pattern" |
 | **supirvast** | The IR, the kernels' backends, `PassRunner`, `Accelerator`, `GpuContext`, timelines |
 | **kronometer** | The world's clock (`Dilated`), tempos, `Ratio` |
-| **vexelray-framework** | The application framework and the annotation processor that writes `FluidDemoWiring`. Its `docs/threading.md` and `docs/components.md` are the rules the processor enforces |
+| **vexelray-framework** | The application framework and the annotation processor that writes `FluidDemoWiring` and the rigid demo's wiring. Its `docs/threading.md` and `docs/components.md` are the rules the processor enforces |
 | **vexelray-gui**, **vexelray** | The window, widgets, the automation socket; the engine, `SampledColorTarget.renderInto` with a timeline wait |
+| **vexelray-dist** | Builds and ships the two demos: it names them `vexelray-sim-physics/vexelray-sim-fluid` and `.../vexelray-sim-rigid`, each with its own `installer.json` |
 
 ## Building and testing
 
-- A change in a sibling is seen here only once it is `mvn install`ed. Builds here run offline (`mvn -o`) against
-  `~/.m2`; install the sibling first (`vexelray-sim-core` most often).
-- `mvn install` runs the tests that take seconds. `-Pphysics` adds the ones that run seconds of fluid, about eight
-  minutes; `-Dflip.sweep=true` the sweeps and benchmarks. The 2D `ParticleSimulation` has no test of its own outside
-  the demo; the 3D one has `PreparedSimulationTest` and `SharedGridMarchTest`.
+- `mvn -o install` at the root builds and tests everything here in order. One folder alone, with what it needs:
+  `mvn -o install -pl vexelray-sim-fluid/vexelray-sim-fluid-demo -am`. A change in a sibling repository is seen here
+  only once it is `mvn install`ed there.
+- `mvn install` runs the tests that take seconds. `-Pphysics` adds the ones that run seconds of simulated time: about
+  eight minutes for the fluid's. `-Dflip.sweep=true` runs the fluid's sweeps and benchmarks, `-Drigid.sweep=true` the
+  rigid solvers'. The 2D `ParticleSimulation` has no test of its own outside the demo; the 3D one has
+  `PreparedSimulationTest` and `SharedGridMarchTest`.
 - **Other sessions may be working in the siblings at the same time**, and reinstalling their jars mid-build. A burst of
   `NoClassDefFoundError: Could not initialize class ...Accelerator` across GPU tests that did not change is that, not a
   regression: compare `git log` in the sibling and the jar's time in `~/.m2` with when the run started, and run again
@@ -31,7 +43,7 @@ Most of what this repo leans on is in them:
   metadata): they are likely another session's, so ask rather than revert.
 - There is no Python on this machine; script with bash, PowerShell or a single-file `java Foo.java`.
 
-## The framework's rules, as they bite here
+## The framework's rules, as they bite the demos
 
 The processor turns these into compile errors, with good messages; knowing them first saves a round trip.
 
@@ -51,10 +63,12 @@ The processor turns these into compile errors, with good messages; knowing them 
 - **A part built before the window must hold nothing made on the device**: it is closed after the device is. `Ui`
   builds the views; `Session` closes them.
 
-## Running and driving the demo
+## Running and driving the demos
+
+From the root, once installed (`vexelray-sim-rigid/vexelray-sim-rigid-demo` for the other):
 
 ```bash
-mvn -o -pl vexelray-sim-fluid-demo exec:exec -Dautomation=0
+mvn -o -pl vexelray-sim-fluid/vexelray-sim-fluid-demo exec:exec -Dautomation=0
 ```
 
 It prints `automation: localhost:<port>`. Drive it with **`ottermate`**, which is built and lives at
@@ -63,10 +77,10 @@ It prints `automation: localhost:<port>`. Drive it with **`ottermate`**, which i
 
 ```bash
 ../vexelray-gui/vexelray-gui-automation-cli/ottermate --port <port> --script steps.txt
-../vexelray-gui/vexelray-gui-automation-cli/ottermate --script steps.txt --launch mvn.cmd -o -pl vexelray-sim-fluid-demo exec:exec -Dautomation=0
+../vexelray-gui/vexelray-gui-automation-cli/ottermate --script steps.txt --launch mvn.cmd -o -pl vexelray-sim-fluid/vexelray-sim-fluid-demo exec:exec -Dautomation=0
 ```
 
-`--launch` starts the demo, reads its port, runs the script and shuts it down. What has worked:
+`--launch` starts the demo, reads its port, runs the script and shuts it down. What has worked, on the fluid demo:
 
 - `await readout.scenario <text>` before anything else, since the first start is made on the physics lane; then
   `find readout.` reads every readout line at once (time, steps, world speed, drift, alarms), which says more than a

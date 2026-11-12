@@ -2,14 +2,14 @@
 
 ## Where this sits
 
-| Repo | What it is |
+| Folder | What it is |
 | --- | --- |
 | `vexelray-sim-core` | What every simulation shares: the kernel body, a step as passes over named buffers, the clock, the work budget, the camera, the panel's rows. Infrastructure, never technique. |
 | `vexelray-sim-fluid` | The fluid solver and its experiments. |
 | `vexelray-sim-rigid` | The rigid-body solver and its experiments. |
-| `vexelray-sim-physics` | This: the two coupled, and the front door. |
+| `vexelray-sim-physics-core`, `-gui` | This: the two coupled, and the front door. |
 
-Dependencies point downward only. The fluid and the rigid bodies do not know about each other, so the coupling has
+All four are in this repository, each in its folder. Dependencies point downward only. The fluid and the rigid bodies do not know about each other, so the coupling has
 nowhere to live but here.
 
 ## The front door

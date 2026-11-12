@@ -5,7 +5,7 @@ A technique, such as a scatter, a solver or a contact model, stays in the simula
 asks for the same thing.
 
 It is drawn out of [vexelray-sim-fluid](../vexelray-sim-fluid). [vexelray-sim-rigid](../vexelray-sim-rigid) builds on it
-too, and [vexelray-sim-physics](../vexelray-sim-physics), which couples the two and is the front door for an
+too, and [vexelray-sim-physics](..), which couples the two and is the front door for an
 application. A contract the fluid and the bodies must both meet, such as what a solid is to the fluid, belongs here,
 so that neither imports the other.
 

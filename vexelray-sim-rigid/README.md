@@ -17,7 +17,7 @@ implementation is chosen from the results. [docs/architecture.md](docs/architect
 | `vexelray-sim-rigid-demo` | A framework application: the scenarios, the solver's settings beside the readings they move. The physics is a `@Component` on a lane of its own, on the compute queue the application lends it, and the frame never waits for it. The clock is Kronometer's: a fixed 60 Hz rate inside a tempo the playback speed scales, whose due steps the frame counts for the physics lane to run. |
 
 It knows nothing of water. A body floating or pushed by a wake is
-[vexelray-sim-physics](../vexelray-sim-physics), which couples this to the fluid.
+[vexelray-sim-physics](..), which couples this to the fluid.
 
 ## Status
 
@@ -47,7 +47,7 @@ each against the frame. [docs/TODO.md](docs/TODO.md) has the numbers and the res
 ## Running
 
 The stack's siblings must be installed to the local Maven repository first: `supirvast`, `vexelray`, `kronometer`,
-`tactroller`, `atchung`, `vexelray-gui`, `vexelray-framework`, `vexelray-sim-core`.
+`tactroller`, `atchung`, `vexelray-gui`, `vexelray-framework`. `mvn install` at the repository root builds sim-core with it.
 
 ```bash
 mvn install

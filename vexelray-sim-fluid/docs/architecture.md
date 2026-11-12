@@ -28,14 +28,14 @@ What that asks of every piece:
 
 ## Where this sits
 
-The fluid is one simulation of several, in sibling repos that depend downward only:
+The fluid is one simulation of several, each a folder of vexelray-sim-physics, depending downward only:
 
-| Repo | What it is |
+| Folder | What it is |
 | --- | --- |
 | `vexelray-sim-core` | What every simulation shares: the kernel body, a step as passes over named buffers, the clock, the work budget, the camera, the panel's rows, the lent compute queue (`AppCompute`) and the ring finished steps reach a picture through (`ShownRing`, `KeptSlots`). Infrastructure, never technique. |
 | `vexelray-sim-fluid` | This: the fluid solver and its experiments. |
 | `vexelray-sim-rigid` | The rigid-body solver and its experiments. |
-| `vexelray-sim-physics` | The two coupled, and the front door: what an application that wants physics depends on. |
+| `vexelray-sim-physics-core`, `-gui` | The two coupled, and the front door: what an application that wants physics depends on. |
 
 **Fluid and rigid do not know about each other.** The fluid takes a solid as a boundary — where it is, and how
 fast its surface moves — and gives back what the fluid did to it, and it does not care what is moving that

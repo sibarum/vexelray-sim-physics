@@ -6,17 +6,24 @@
 
     <groupId>dev.vexelray.sim</groupId>
     <artifactId>vexelray-sim-physics</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.1.3-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>vexelray-sim-physics</name>
     <description>
-        Physics for VexelRay, and the front door to its simulations: the fluid and the rigid bodies coupled both
-        ways, stepped as one. Bodies feel buoyancy and drag, and the fluid feels the bodies as moving boundaries.
-        An application that wants physics depends on this, not on the simulations under it.
+        Physics for VexelRay, and the front door to its simulations: what they share, the fluid, the rigid bodies,
+        and the two coupled both ways and stepped as one. The fluid and the rigid bodies do not depend on each other;
+        only the coupling depends on both. An application that wants physics depends on this.
     </description>
 
     <modules>
+        <!-- What every simulation shares: the kernel body, a step as data, the clock; on the stack, the camera, the
+             ring of finished steps and the panel's rows. Infrastructure, never technique. -->
+        <module>vexelray-sim-core</module>
+        <!-- The fluid solver and its experiments, with its demo (Fluid Sim). -->
+        <module>vexelray-sim-fluid</module>
+        <!-- The rigid-body solver and its experiments, with its demo (Rigid Sim). -->
+        <module>vexelray-sim-rigid</module>
         <!-- The coupling as SupirVast IR, and the passes of both simulations ordered into one step. No engine, no
              window. -->
         <module>vexelray-sim-physics-core</module>
@@ -29,68 +36,75 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- The stack, installed to the local .m2 from the sibling checkouts. -->
-        <supirvast.version>0.2.0-SNAPSHOT</supirvast.version>
-        <vexelray.gui.version>0.1.0-SNAPSHOT</vexelray.gui.version>
-        <vexelray.sim.core.version>0.1.0-SNAPSHOT</vexelray.sim.core.version>
-        <vexelray.sim.fluid.version>0.1.0-SNAPSHOT</vexelray.sim.fluid.version>
-        <vexelray.sim.rigid.version>0.1.0-SNAPSHOT</vexelray.sim.rigid.version>
+        <supirvast.version>0.2.3-SNAPSHOT</supirvast.version>
+        <vexelray.version>0.1.3-SNAPSHOT</vexelray.version>
+        <vexelray.gui.version>0.1.3-SNAPSHOT</vexelray.gui.version>
+        <vexelray.framework.version>0.1.3-SNAPSHOT</vexelray.framework.version>
+        <tactroller.version>1.3-SNAPSHOT</tactroller.version>
+        <vexelray.codec.version>0.1.3-SNAPSHOT</vexelray.codec.version>
+        <kronometer.version>1.3-SNAPSHOT</kronometer.version>
 
         <junit.version>5.11.4</junit.version>
 
-        <!-- Tests tagged "physics" run seconds of simulated time and judge what happened; they take minutes,
-             so a build leaves them out. mvn test -Pphysics runs them as well. -->
+        <!-- Tests tagged "physics" run seconds of simulated time and judge what the water or the bodies did; they
+             take minutes, so a build leaves them out. mvn test -Pphysics runs them as well. -->
         <test.excludedGroups>physics</test.excludedGroups>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Reactor-internal modules: children reference these without a version. -->
+            <!-- This repository's own modules: children reference these without a version. -->
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-core-gui</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-fluid-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-fluid-gui</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-rigid-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.sim</groupId>
+                <artifactId>vexelray-sim-rigid-gui</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>dev.vexelray.sim</groupId>
                 <artifactId>vexelray-sim-physics-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
-            <!-- The simulations coupled, from the sibling checkouts. -->
+            <!-- Time: the world's clock, a fixed step in the playback tempo, run on the physics lane, whose time slows
+                 rather than hurry when steps are slow. -->
             <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-fluid-core</artifactId>
-                <version>${vexelray.sim.fluid.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-fluid-gui</artifactId>
-                <version>${vexelray.sim.fluid.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-rigid-core</artifactId>
-                <version>${vexelray.sim.rigid.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-rigid-gui</artifactId>
-                <version>${vexelray.sim.rigid.version}</version>
+                <groupId>sibarum.kronometer</groupId>
+                <artifactId>kronometer-core</artifactId>
+                <version>${kronometer.version}</version>
             </dependency>
 
-            <!-- What the simulations share. -->
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-core</artifactId>
-                <version>${vexelray.sim.core.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-core-gui</artifactId>
-                <version>${vexelray.sim.core.version}</version>
-            </dependency>
-
+            <!-- SupirVast's pure-Java IR, and with vexelray-sim-core the only thing a -core module depends on. -->
             <dependency>
                 <groupId>dev.supirvast</groupId>
                 <artifactId>vastir</artifactId>
                 <version>${supirvast.version}</version>
             </dependency>
-            <!-- The CPU backend that runs the IR, and the accelerator that runs it on the GPU. -->
+            <!-- The CPU backend that runs the IR, and the Vulkan path that runs it on the GPU. -->
             <dependency>
                 <groupId>dev.supirvast</groupId>
                 <artifactId>vast</artifactId>
@@ -101,9 +115,33 @@
                 <artifactId>vastir-tools</artifactId>
                 <version>${supirvast.version}</version>
             </dependency>
+
+            <!-- The render target, storage binding and pipeline the views draw through. -->
+            <dependency>
+                <groupId>dev.vexelray</groupId>
+                <artifactId>vexelray-vulkan</artifactId>
+                <version>${vexelray.version}</version>
+            </dependency>
+            <!-- The march the fluid's 3D view is built on: its composer takes a distance field the application
+                 supplies, which there reads the simulation's own grid. -->
+            <dependency>
+                <groupId>dev.vexelray</groupId>
+                <artifactId>vexelray-technique-sdf</artifactId>
+                <version>${vexelray.version}</version>
+            </dependency>
             <dependency>
                 <groupId>dev.vexelray.gui</groupId>
                 <artifactId>vexelray-gui-core</artifactId>
+                <version>${vexelray.gui.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.gui</groupId>
+                <artifactId>vexelray-gui-widget</artifactId>
+                <version>${vexelray.gui.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.vexelray.gui</groupId>
+                <artifactId>vexelray-gui-harness</artifactId>
                 <version>${vexelray.gui.version}</version>
             </dependency>
 
@@ -126,6 +164,23 @@
     </dependencies>
 
     <build>
+        <plugins>
+            <!-- Platform-specific code only in -windows, -linux and -macos modules: vexelray-build's isolate goal fails
+                 the build on any outside them (vexelray-build/README.md). -->
+            <plugin>
+                <groupId>dev.vexelray.build</groupId>
+                <artifactId>vexelray-build-maven-plugin</artifactId>
+                <version>0.1.3-SNAPSHOT</version>
+                <executions>
+                    <execution>
+                        <id>isolate</id>
+                        <goals>
+                            <goal>isolate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>
@@ -155,12 +210,6 @@
     </build>
 
     <profiles>
-        <profile>
-            <id>physics</id>
-            <properties>
-                <test.excludedGroups />
-            </properties>
-        </profile>
         <!-- On Linux the build goes to target-linux/, not target/: the Windows host and a Linux VM build the same checkout
              (a shared folder), and each keeps its own output beside the other's instead of overwriting it. -->
         <profile>
@@ -174,6 +223,12 @@
             <build>
                 <directory>${project.basedir}/target-linux</directory>
             </build>
+        </profile>
+        <profile>
+            <id>physics</id>
+            <properties>
+                <test.excludedGroups />
+            </properties>
         </profile>
     </profiles>
 </project>

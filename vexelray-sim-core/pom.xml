@@ -4,16 +4,19 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>dev.vexelray.sim</groupId>
+    <!-- The version, the stack's properties, the build's plugins and the physics profile are the root's. -->
+    <parent>
+        <groupId>dev.vexelray.sim</groupId>
+        <artifactId>vexelray-sim-physics</artifactId>
+        <version>0.1.3-SNAPSHOT</version>
+    </parent>
+
     <artifactId>vexelray-sim-core-parent</artifactId>
-    <version>0.1.3-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>vexelray-sim-core</name>
     <description>
-        What the VexelRay simulations share: the infrastructure every experiment pays for once, not any technique.
-        The pure half is in -core, the stack's half in -gui. vexelray-sim-fluid, vexelray-sim-rigid and
-        vexelray-sim-physics build on it.
+        What every simulation shares: infrastructure, never technique.
     </description>
 
     <modules>
@@ -22,121 +25,4 @@
         <!-- On the VexelRay stack: the work budget, the orbit camera, and the widgets a demo's control panel is made of. -->
         <module>vexelray-sim-core-gui</module>
     </modules>
-
-    <properties>
-        <maven.compiler.release>25</maven.compiler.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-
-        <!-- The stack, installed to the local .m2 from the sibling checkouts. -->
-        <supirvast.version>0.2.3-SNAPSHOT</supirvast.version>
-        <vexelray.gui.version>0.1.3-SNAPSHOT</vexelray.gui.version>
-
-        <junit.version>5.11.4</junit.version>
-    </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>dev.vexelray.sim</groupId>
-                <artifactId>vexelray-sim-core</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>dev.supirvast</groupId>
-                <artifactId>vastir-tools</artifactId>
-                <version>${supirvast.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.gui</groupId>
-                <artifactId>vexelray-gui-core</artifactId>
-                <version>${vexelray.gui.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.gui</groupId>
-                <artifactId>vexelray-gui-widget</artifactId>
-                <version>${vexelray.gui.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.vexelray.gui</groupId>
-                <artifactId>vexelray-gui-harness</artifactId>
-                <version>${vexelray.gui.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${junit.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <dependencies>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <plugins>
-            <!-- Platform-specific code only in -windows, -linux and -macos modules: vexelray-build's isolate goal fails
-                 the build on any outside them (vexelray-build/README.md). -->
-            <plugin>
-                <groupId>dev.vexelray.build</groupId>
-                <artifactId>vexelray-build-maven-plugin</artifactId>
-                <version>0.1.3-SNAPSHOT</version>
-                <executions>
-                    <execution>
-                        <id>isolate</id>
-                        <goals>
-                            <goal>isolate</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.13.0</version>
-                    <!-- Explicit release on the plugin as well as the property, so IDEs pick up the Java 25
-                         language level reliably. Same as the sibling repos. -->
-                    <configuration>
-                        <target>${maven.compiler.release}</target>
-                        <release>${maven.compiler.release}</release>
-                        <compilerArgs>
-                            <arg>-Xdoclint:reference,syntax</arg>
-                        </compilerArgs>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.2</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-    </build>
-    <profiles>
-        <!-- On Linux the build goes to target-linux/, not target/: the Windows host and a Linux VM build the same checkout
-             (a shared folder), and each keeps its own output beside the other's instead of overwriting it. -->
-        <profile>
-            <id>linux-build-output</id>
-            <activation>
-                <os>
-                    <family>unix</family>
-                    <name>linux</name>
-                </os>
-            </activation>
-            <build>
-                <directory>${project.basedir}/target-linux</directory>
-            </build>
-        </profile>
-    </profiles>
 </project>

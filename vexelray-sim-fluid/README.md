@@ -29,7 +29,7 @@ also the front door for an application.
 ## Running
 
 The stack's siblings must be installed to the local Maven repository first: `supirvast`, `vexelray`,
-`tactroller`, `atchung`, `vexelray-gui`, `vexelray-framework`, `vexelray-sim-core`.
+`tactroller`, `atchung`, `vexelray-gui`, `vexelray-framework`. `mvn install` at the repository root builds sim-core with it.
 
 ```bash
 mvn install
