@@ -1,0 +1,30 @@
+{
+  "id": "rigid-sim",
+  "name": "Rigid Sim",
+  "publisher": "sibarum",
+  "description": "Rigid-body simulation experiments on the VexelRay stack: spheres that collide, bounce, spin and roll, live on the GPU.",
+  "version": "0.1.3-SNAPSHOT",
+
+  "repo": "sibarum/vexelray-dist",
+  "branch": "main",
+  "repoPath": "apps/rigid-sim",
+  "releasesRepo": "sibarum/vexelray-dist",
+  "tagFormat": "rigid-sim-v{version}",
+
+  "windows": {
+    "binaries": [
+      {
+        "name": "rigid-sim",
+        "source": "vexelray-sim-rigid-demo/target/rigid-sim.exe",
+        "icon": "vexelray-sim-rigid-demo/src/main/rc/rigid-sim.ico",
+        "shortcuts": { "desktop": true, "startMenu": true, "label": "Rigid Sim" }
+      },
+      {
+        "name": "rigid-sim-ffmpeg-record",
+        "source": "vexelray-sim-rigid-demo/target/rigid-sim-ffmpeg-record-windows-x86_64.zip",
+        "dir": "ffmpeg-record"
+      },
+      { "name": "notices", "source": "THIRD-PARTY-NOTICES.txt" }
+    ]
+  }
+}
