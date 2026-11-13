@@ -431,3 +431,10 @@ contacts a step unsolved on the pile of 4096.
       SPIR-V on a lane as soon as the shape is known (it is pure), and create the pipeline off the main thread once
       `ViewportTarget.pipelineFor` is known to be safe there (`vkCreateGraphicsPipelines` is; what the target holds
       may not be), drawing nothing new until it is ready. Real GPUs feel it less, but every one pays it.
+- [ ] **The demo presents one frame a step, not one a display refresh.** Measured 2026-11-13 for vexelray-gui's
+      `device-feed.md` step 0, a background run on the laptop: 57.1 frames a second with the gap between them at 17.40
+      ms (p50), the same as `a step 17.4 ms`, where `physics-timing.md` recorded 140 to 144 in stages 4 and 5. The
+      fluid demo does the same (17.50 against 17.3). So the blend by `Dilated.phase` is never seen between steps. Either
+      the loop now draws only on change and nothing wakes it between steps (frame-loop.md), or a background run's
+      cloaked window is paced apart from the display; a run watched in the foreground tells them apart. The 0.2 port
+      (device-feed.md, E) is meant to keep the frame off the step either way.
