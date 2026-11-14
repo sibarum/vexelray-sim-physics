@@ -244,36 +244,6 @@ class ShallowWaterTest {
         }
     }
 
-    // --- cost --------------------------------------------------------------------------------------------
-
-    /**
-     * Not an assertion: a 1024 × 1024 patch stepped a hundred times on the GPU, with the step-size reduction
-     * fused in. Every cell may reach for the same atomic, which is the textbook way for a reduction to become
-     * the bottleneck; this is the number that says whether it has.
-     */
-    @Test
-    void gpuThroughputAtAMillionCells() {
-        int n = 1024;
-        float[] h = new float[n * n];
-        for (int y = 0; y < n; y++) {
-            for (int x = 0; x < n; x++) {
-                h[y * n + x] = x < n / 2 ? 2f : 1f;   // a dam across the middle, so every step has flow
-            }
-        }
-        try (Stepper stepper = Stepper.on(Stepper.Backend.GPU, n, n, Edges.all(Edge.WALL))) {
-            stepper.set(h, new float[n * n], new float[n * n],
-                    ShallowWater.params(G, COURANT, 1, 1, ShallowWater.DEFAULT_DRY), FOREVER);
-            stepper.step(5);
-            stepper.time();   // warm, and drain
-            long start = System.nanoTime();
-            stepper.step(100);
-            double clock = stepper.time();
-            double ms = (System.nanoTime() - start) / 1e6;
-            System.out.printf("[cost] 2^20 cells on %s: %.3f ms per step, fused step-size reduction included "
-                    + "(clock %.2f s)%n", stepper.device(), ms / 100, clock);
-        }
-    }
-
     private static double sum(float[] values) {
         double total = 0;
         for (float value : values) {
