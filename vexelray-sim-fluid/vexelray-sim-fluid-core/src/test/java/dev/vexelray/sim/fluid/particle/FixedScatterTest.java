@@ -5,6 +5,7 @@ import dev.supirvast.vastir.core.Buffer;
 import dev.supirvast.vastir.core.Function;
 import dev.supirvast.vastir.lower.SpirvTarget;
 import dev.supirvast.vastir.tools.Accelerator;
+import dev.supirvast.vastir.tools.GpuContext;
 import dev.supirvast.vastir.tools.KernelHandle;
 import dev.supirvast.vastir.tools.KernelSpec;
 import dev.supirvast.vastir.tools.Registration;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Whether the fixed-point scatter is what vexelray-lean-proofs' {@code Scatter/} files say it is — one grid from
@@ -327,6 +329,13 @@ class FixedScatterTest {
 
     // --- running it -------------------------------------------------------------------------------------
 
+    /** Whether this machine's device can run compute with full subgroups of {@code size} lanes. */
+    private static boolean subgroupsOf(int size) {
+        try (GpuContext context = GpuContext.open()) {
+            return context.supportsSubgroupSize(size);
+        }
+    }
+
     /** One fixed-point scatter onto a zeroed {@code n × n} grid; returns {@code {m, mu, mv}} in quanta. */
     private static int[][] scatter(Backend backend, int n, Particles particles, Schedule schedule, FixedPoint scale) {
         Job job = Job.fixed(n, particles, schedule, scale);
@@ -339,6 +348,12 @@ class FixedScatterTest {
         try (Accelerator accelerator = new Accelerator()) {
             ScatterTest.assumeGpu(accelerator);
             KernelHandle handle = job.register(accelerator);
+            if (handle.preferredBackend() == KernelHandle.Backend.CPU) {
+                // A kernel that uses subgroups gets exactly Scatter.SUBGROUP lanes or no GPU (Accelerator), and a
+                // device that cannot give them (llvmpipe's are 8 wide) runs it on the CPU by design.
+                assumeTrue(subgroupsOf(Scatter.SUBGROUP),
+                        "this device cannot run full subgroups of " + Scatter.SUBGROUP);
+            }
             assertEquals(KernelHandle.Backend.GPU, handle.preferredBackend(), schedule + " must run on the device");
             List<ResidentBuffer> buffers = job.upload(accelerator);
             try {
