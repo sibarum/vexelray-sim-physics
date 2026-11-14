@@ -41,6 +41,10 @@ mvn install
 Builds everything here and runs the tests that take seconds. Tests that run seconds of simulated time and judge what
 happened run only with `-Pphysics`.
 
+**The demos are off for now.** On the 0.2 stack they do not compile until vexelray-gui has a way to show a picture made
+on the GPU ([device-feed.md](../vexelray-gui/docs/plans/device-feed.md), steps 2 and 4; their port is its step 5), so
+`mvn install` leaves them out. `-Pdemos` adds them back, and fails until then; the commands below are for after it.
+
 ```bash
 mvn -pl vexelray-sim-fluid/vexelray-sim-fluid-demo exec:exec
 ```

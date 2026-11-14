@@ -37,11 +37,11 @@
 
         <!-- The stack, installed to the local .m2 from the sibling checkouts. -->
         <supirvast.version>0.2.3-SNAPSHOT</supirvast.version>
-        <vexelray.version>0.1.3-SNAPSHOT</vexelray.version>
-        <vexelray.gui.version>0.1.3-SNAPSHOT</vexelray.gui.version>
-        <vexelray.framework.version>0.1.3-SNAPSHOT</vexelray.framework.version>
+        <vexelray.version>0.2.0-SNAPSHOT</vexelray.version>
+        <vexelray.gui.version>0.2.0-SNAPSHOT</vexelray.gui.version>
+        <vexelray.framework.version>0.2.0-SNAPSHOT</vexelray.framework.version>
         <tactroller.version>1.3-SNAPSHOT</tactroller.version>
-        <vexelray.codec.version>0.1.3-SNAPSHOT</vexelray.codec.version>
+        <vexelray.codec.version>0.2.0-SNAPSHOT</vexelray.codec.version>
         <kronometer.version>1.3-SNAPSHOT</kronometer.version>
 
         <junit.version>5.11.4</junit.version>
@@ -223,6 +223,19 @@
             <build>
                 <directory>${project.basedir}/target-linux</directory>
             </build>
+        </profile>
+        <!-- The two demos, Fluid Sim and Rigid Sim, are off until the stack can show a picture made on the GPU. On 0.2 they
+             do not compile: they draw on the main thread (@MainThread, @BeforeFrame, the GuiApp) and share mutable state
+             with the physics lane, which the framework refuses. Their port is step 5 of vexelray-gui's
+             docs/plans/device-feed.md, after its steps 2 (the device feed) and 4 (technique views and a lent DeviceQueue),
+             which also close the Viewport3D item in vexelray-framework's docs/TODO.md. Until then mvn install -Pdemos
+             builds them and fails; the rest builds and tests without them. -->
+        <profile>
+            <id>demos</id>
+            <modules>
+                <module>vexelray-sim-fluid/vexelray-sim-fluid-demo</module>
+                <module>vexelray-sim-rigid/vexelray-sim-rigid-demo</module>
+            </modules>
         </profile>
         <profile>
             <id>physics</id>

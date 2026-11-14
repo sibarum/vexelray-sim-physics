@@ -2,15 +2,12 @@ package dev.vexelray.sim.core.gui;
 
 import dev.vexelray.gui.core.Gui;
 import dev.vexelray.gui.core.Node;
+import dev.vexelray.gui.core.Timing;
 import dev.vexelray.gui.core.layout.Length;
 import dev.vexelray.gui.widget.Lattice;
 import dev.vexelray.gui.widget.Property;
-import dev.vexelray.gui.widget.Ramp;
 import dev.vexelray.gui.widget.Slider;
-
-import java.util.function.DoubleConsumer;
 import java.util.function.DoubleFunction;
-import java.util.function.DoubleSupplier;
 
 /**
  * A number on a slider, with the text beside it the application chooses.
@@ -18,46 +15,53 @@ import java.util.function.DoubleSupplier;
  * <p>The inspector's own range row writes the number in its own format, which has no room for a unit and no way to read
  * a speed of one eighth. This one takes the text from the caller, and can lay its track out in octaves, so that a value
  * that spans three orders of magnitude has the same travel at each end. On a log track the step is in octaves.
+ *
+ * <p>A {@link Property} as 0.2 has it: the value is told ({@link #show}), and what the user does leaves as a
+ * {@code Double} through the row's {@link Property.Edits}, never back into the model from here. The slider is named by
+ * the row's id, and its moves are heard as {@link Slider#CHANGED} at that address.
  */
 public final class Dial implements Property {
 
+    private final String id;
     private final String section;
     private final String name;
     private final double min;
     private final double max;
     private final double step;
     private final boolean log;
-    private final DoubleSupplier get;
-    private final DoubleConsumer set;
     private final DoubleFunction<String> text;
     private Slider slider;
     private Readout value;
     /** Kept, not just forwarded: the panel may be given its motion before this row is asked for a slider. */
-    private Ramp knob;
+    private Timing knob;
 
-    private Dial(String section, String name, double min, double max, double step, boolean log, DoubleSupplier get,
-                 DoubleConsumer set, DoubleFunction<String> text) {
+    private Dial(String id, String section, String name, double min, double max, double step, boolean log,
+                 DoubleFunction<String> text) {
+        this.id = id;
         this.section = section;
         this.name = name;
         this.min = min;
         this.max = max;
         this.step = step;
         this.log = log;
-        this.get = get;
-        this.set = set;
         this.text = text;
     }
 
-    /** A linear track from {@code min} to {@code max}, snapped to {@code step}. */
-    public static Dial linear(String section, String name, double min, double max, double step, DoubleSupplier get,
-                       DoubleConsumer set, DoubleFunction<String> text) {
-        return new Dial(section, name, min, max, step, false, get, set, text);
+    /** A linear track from {@code min} to {@code max}, snapped to {@code step}; at {@code min} until told. */
+    public static Dial linear(String id, String section, String name, double min, double max, double step,
+                              DoubleFunction<String> text) {
+        return new Dial(id, section, name, min, max, step, false, text);
     }
 
-    /** A track in octaves from {@code min} to {@code max}, snapped to {@code octaves} of them. */
-    public static Dial logarithmic(String section, String name, double min, double max, double octaves, DoubleSupplier get,
-                            DoubleConsumer set, DoubleFunction<String> text) {
-        return new Dial(section, name, min, max, octaves, true, get, set, text);
+    /** A track in octaves from {@code min} to {@code max}, snapped to {@code octaves} of them; at {@code min} until told. */
+    public static Dial logarithmic(String id, String section, String name, double min, double max, double octaves,
+                                   DoubleFunction<String> text) {
+        return new Dial(id, section, name, min, max, octaves, true, text);
+    }
+
+    @Override
+    public String id() {
+        return id;
     }
 
     @Override
@@ -71,31 +75,31 @@ public final class Dial implements Property {
     }
 
     @Override
-    public Node editor(Gui gui, Readout value) {
+    public Node editor(Gui gui, Readout value, Edits edits) {
         this.value = value;
-        double current = get.getAsDouble();
         // The step is in the track's own scale — octaves on a log track — so it is an even lattice of fractions
         // either way, and the slider draws it, holds the thumb on it and settles there.
         double span = scale(max) - scale(min);
-        slider = new Slider(gui, (float) fraction(current))
+        slider = new Slider(gui, 0f)
                 .lattice(span > 0 && step > 0 ? Lattice.every(step / span) : Lattice.none())
-                .transition(knob);
-        slider.onChange(f -> {
-            double v = exact(at(f));
-            set.accept(v);
+                .transition(knob)
+                .name(id);
+        gui.mailbox(Slider.CHANGED, slider.address(), moved -> {
+            double v = exact(at(moved.value()));
+            edits.edited(v);
             value.show(text.apply(v));
         });
-        value.show(text.apply(current));
+        value.show(text.apply(min));
         return slider.node().width(Length.grow(1f));
     }
 
     @Override
-    public void refresh() {
-        if (slider == null) {
+    public void show(Object told) {
+        if (slider == null || !(told instanceof Number n)) {
             return;
         }
-        double current = get.getAsDouble();
-        // show, not value: reading the model back is not the user dragging.
+        double current = n.doubleValue();
+        // show, not value: a row told its model is not the user dragging it.
         slider.show((float) fraction(current));
         value.show(text.apply(current));
     }
@@ -107,10 +111,10 @@ public final class Dial implements Property {
     }
 
     @Override
-    public void motion(Ramp ramp) {
-        this.knob = ramp;
+    public void motion(Timing timing) {
+        this.knob = timing;
         if (slider != null) {
-            slider.transition(ramp);
+            slider.transition(timing);
         }
     }
 

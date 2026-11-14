@@ -3,11 +3,8 @@ package dev.vexelray.sim.fluid.gui;
 import dev.vexelray.gui.core.Gui;
 import dev.vexelray.gui.core.Node;
 import dev.vexelray.gui.core.app.GuiApp;
-import dev.vexelray.gui.core.input.DragEvent;
-import dev.vexelray.gui.core.input.InputTopics;
-import dev.vexelray.gui.core.layout.NodeLayout;
-import dev.vexelray.gui.core.layout.Rect;
 import dev.vexelray.sim.core.gui.Orbit;
+import dev.vexelray.sim.core.gui.OrbitControl;
 import dev.vexelray.sim.core.gui.ShownRing;
 import dev.vexelray.surface.Surface;
 import dev.vexelray.technique.sdf.MarchSettings;
@@ -16,9 +13,6 @@ import dev.vexelray.technique.sdf.SdfScene;
 import dev.vexelray.vulkan.present.BoundStorageBuffer;
 import dev.vexelray.vulkan.present.GraphicsPipeline;
 import dev.vexelray.vulkan.present.SampledColorTarget;
-import sibarum.atchung.Subscription;
-import sibarum.probe.Log;
-import sibarum.tactroller.api.InputEvent;
 
 /**
  * A three-dimensional simulation's water, seen as a lit surface from any side: the grid a finished step left is
@@ -41,13 +35,8 @@ import sibarum.tactroller.api.InputEvent;
  */
 public final class FluidView3 implements AutoCloseable {
 
-    private static final Log LOG = Log.of("sim.view3");
-
     /** The march's own picture is square, so a node is its aspect; the node scales it. */
     private static final double ASPECT = 1.0;
-
-    private static final double DRAG_YAW = Math.PI;
-    private static final double DRAG_PITCH = Math.PI / 2;
 
     /** The water: a clear blue the key light has something to shade, against a dark sky. */
     private static final Surface.Rgb WATER = new Surface.Rgb(0.25, 0.5, 0.9);
@@ -91,7 +80,8 @@ public final class FluidView3 implements AutoCloseable {
     private final BoundStorageBuffer[] slots = new BoundStorageBuffer[ShownRing.SLOTS];
     private long generation = -1;
     private GraphicsPipeline pipeline;
-    private Subscription wheel;
+    /** The drag and the wheel on the node, once {@link #attach}ed. */
+    private OrbitControl control;
     private Grid shape;
     private int pushBytes;
 
@@ -116,45 +106,12 @@ public final class FluidView3 implements AutoCloseable {
     }
 
     /**
-     * Turn the camera by dragging in the node, and zoom it with the wheel over the node.
-     *
-     * <p>The pointer is held for a drag and warped back, because turning is a displacement and the pointer would
-     * otherwise leave the box a quarter of the way round. The wheel comes from the one device bus, like every
-     * other input: scroll dispatch belongs to scrollable containers, and this is not one, so the event is read
-     * where it is published and answered only when the pointer is over the node and the surface is showing.
-     * A touchpad's two-finger scroll arrives as the same event in small fractions of a notch, which {@link
-     * Orbit#zoom} takes as they come.
+     * Turn the camera by dragging in the node, and zoom it with the wheel over the node, through an {@link
+     * OrbitControl}: the wheel is the node's only while the surface is what it shows ({@link #withdraw}).
      */
     public void attach(Gui gui) {
-        gui.onDrag(node, this::drag);
-        gui.dragLocksPointer(node, true);
-        wheel = gui.bus().subscribe(InputTopics.INPUT, event -> {
-            if (event instanceof InputEvent.Scrolled s && s.yOffset() != 0 && active && over(s.x(), s.y())) {
-                LOG.debug("zoom {} notches at {},{}", s.yOffset(), s.x(), s.y());
-                orbit.zoom(s.yOffset());
-                gui.wakeForInput();               // a paused simulation owes no frame, and the picture has moved
-            }
-        });
-    }
-
-    /**
-     * Whether a point, in the coordinates the input events and the layout share, is on the node — on the part of
-     * it that can be seen and pointed at, which is what a wheel turned over it is aimed at.
-     */
-    private boolean over(int x, int y) {
-        NodeLayout layout = node.layout();
-        if (!layout.present()) {
-            return false;
-        }
-        Rect box = layout.visibleRect();
-        return x >= box.x() && x < box.x() + box.w() && y >= box.y() && y < box.y() + box.h();
-    }
-
-    private void drag(DragEvent e) {
-        if (e.phase() != DragEvent.Phase.MOVE) {
-            return;                                   // letting go is not a movement
-        }
-        orbit.turn(e.dx() / Math.max(1f, e.nodeW()) * DRAG_YAW, e.dy() / Math.max(1f, e.nodeH()) * DRAG_PITCH);
+        control = new OrbitControl(gui, node, orbit);
+        control.active(active);
     }
 
     /** Turn the camera about the box: {@code dYaw} about the vertical, {@code dPitch} up from the horizon. */
@@ -182,6 +139,9 @@ public final class FluidView3 implements AutoCloseable {
     /** The node is showing something else now: the wheel over it is not this view's. */
     public void withdraw() {
         active = false;
+        if (control != null) {
+            control.active(false);
+        }
     }
 
     /**
@@ -194,6 +154,9 @@ public final class FluidView3 implements AutoCloseable {
     public void show(GuiApp app, ShownRing.Frame<Grid> frame) {
         BoundStorageBuffer slot = bind(app, frame);
         active = true;
+        if (control != null) {
+            control.active(true);
+        }
         Orbit.Pose eye = orbit.pose();
         byte[] camera = SdfComposer.pushConstantBytes(scene, eye.x(), eye.y(), eye.z(), eye.yaw(), eye.pitch(),
                 ASPECT, SdfComposer.paramBlock(scene));
@@ -251,9 +214,9 @@ public final class FluidView3 implements AutoCloseable {
     @Override
     public void close() {
         active = false;
-        if (wheel != null) {
-            wheel.close();
-            wheel = null;
+        if (control != null) {
+            control.close();
+            control = null;
         }
         if (pipeline != null) {
             pipeline.close();

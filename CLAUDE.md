@@ -65,6 +65,9 @@ The processor turns these into compile errors, with good messages; knowing them 
 
 ## Running and driving the demos
 
+**Off until their 0.2 port** (root `docs/TODO.md`, first item): the default build leaves both demos out, and
+`-Pdemos` adds them. What follows is how they were run on 0.1, and how they will be again.
+
 From the root, once installed (`vexelray-sim-rigid/vexelray-sim-rigid-demo` for the other):
 
 ```bash

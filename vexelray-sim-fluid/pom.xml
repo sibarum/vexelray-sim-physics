@@ -29,7 +29,6 @@
         <!-- The simulation on the VexelRay stack: the engine, the GUI, and whatever else of it is needed to
              show and drive the field. -->
         <module>vexelray-sim-fluid-gui</module>
-        <!-- The experiments, on screen, with their readings. (The pirate ship is the coupling's.) -->
-        <module>vexelray-sim-fluid-demo</module>
+        <!-- The demo, vexelray-sim-fluid-demo, is built only with -Pdemos (the root pom says why). -->
     </modules>
 </project>

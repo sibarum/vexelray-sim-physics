@@ -25,7 +25,6 @@
         <module>vexelray-sim-rigid-core</module>
         <!-- The simulation on the VexelRay stack: a runner on resident buffers, and a view of what it holds. -->
         <module>vexelray-sim-rigid-gui</module>
-        <!-- The experiments, on screen, with their readings; its timing is Kronometer's. -->
-        <module>vexelray-sim-rigid-demo</module>
+        <!-- The demo, vexelray-sim-rigid-demo, is built only with -Pdemos (the root pom says why). -->
     </modules>
 </project>
